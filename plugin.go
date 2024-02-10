@@ -10,8 +10,6 @@ import (
 const pluginName = "circuitbreaker"
 
 type Configurer interface {
-	// Experimental checks if RR runs in experimental mode.
-	Experimental() bool
 	// UnmarshalKey takes a single key and unmarshal it into a Struct.
 	UnmarshalKey(name string, out any) error
 	// Has checks if the config section exists.
@@ -40,6 +38,9 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+
+	// create a named logger for this middleware
+	p.log = logger.NamedLogger(pluginName)
 
 	// at this point we're able to safely init defaults
 	conf.InitDefault()

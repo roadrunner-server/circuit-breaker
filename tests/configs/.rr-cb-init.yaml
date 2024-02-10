@@ -10,7 +10,7 @@ server:
 http:
   address: 127.0.0.1:17876
   max_request_size: 1024
-  middleware: []
+  middleware: ["circuitbreaker"]
   pool:
     num_workers: 1
 
@@ -19,4 +19,4 @@ circuitbreaker:
 
 logs:
   mode: development
-  level: error
+  level: debug
