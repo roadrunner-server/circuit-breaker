@@ -1,13 +1,37 @@
 package circuitbreaker
 
+import "time"
+
 type Config struct {
-	option1 string `mapstructure:"option_1"` // option1 - how it would be in the plugin. option_1 - how it would be in the .rr.yaml
-	// here is your configuration
+	maxErrorRate   float32       `mapstructure:"max_error_rate"`
+	timeToHalfOpen time.Duration `mapstructure:"time_to_halfopen"`
+	timeToClosed   time.Duration `mapstructure:"time_to_closed"`
+	errors         []int         `mapstructure:"error_codes"`
+	codeWhenOpen   int           `mapstructure:"code_when_open"`
+	timeWindow     time.Duration `mapstructure:"time_window"`
 }
 
 func (c *Config) InitDefault() {
-	// init default values
-	if c.option1 == "" {
-		c.option1 = "option"
+	if c.maxErrorRate == 0 {
+		// 200% will never happen so effectively disabled. Log a warning?
+		c.maxErrorRate = 2
+	}
+
+	if c.timeToHalfOpen == 0 {
+		c.timeToHalfOpen, _ = time.ParseDuration("60s")
+	}
+
+	if c.timeToClosed == 0 {
+		c.timeToClosed, _ = time.ParseDuration("60s")
+	}
+
+	// Errors array can be empty, effectively disabling this. Log a warning?
+
+	if c.codeWhenOpen == 0 {
+		c.codeWhenOpen = 503
+	}
+
+	if c.timeWindow == 0 {
+		c.timeWindow, _ = time.ParseDuration("5m")
 	}
 }

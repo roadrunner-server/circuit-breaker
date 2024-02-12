@@ -21,3 +21,6 @@
 go.work
 **/vendor/**
 .DS_Store
+
+# Goland workspace files
+.idea

@@ -1,0 +1,8 @@
+{
+  "name": "CircuitBreaker",
+  "dockerFile": "Dockerfile",
+  "postCreateCommand": "go mod download",
+  "shutdownAction": "none",
+  "privileged": true,
+  "capAdd": []
+}
