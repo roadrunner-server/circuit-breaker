@@ -13,6 +13,7 @@ http:
   middleware: ["circuitbreaker"]
   pool:
     num_workers: 1
+
 circuitbreaker:
   max_error_rate: 0.1
   error_codes: [ 500 ]

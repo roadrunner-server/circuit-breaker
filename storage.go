@@ -9,7 +9,7 @@ type storage interface {
 	Init(time.Duration)
 	AddError(time.Time)
 	AddSuccess(time.Time)
-	GetErrorRate() float32
+	GetErrorRate() float64
 }
 
 type tumblingTimeWindow struct {
@@ -48,16 +48,16 @@ func (storage *tumblingTimeWindow) AddSuccess(start time.Time) {
 	storage.successes += 1
 }
 
-func (storage *tumblingTimeWindow) GetErrorRate() float32 {
+func (storage *tumblingTimeWindow) GetErrorRate() float64 {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 
 	// Avoid divide by zero errors :)
 	if storage.successes == 0 {
-		return float32(storage.errors)
+		return float64(storage.errors)
 	}
 
-	return float32(storage.errors) / float32(storage.successes)
+	return float64(storage.errors) / float64(storage.successes)
 }
 
 // Don't acquire storage.mu here since it has already been acquired
@@ -107,7 +107,7 @@ func (storage *tumblingTimeWindow) removeExpiredCounts(start time.Time) {
 //	}
 //}
 //
-//func (storage *SlidingTimeWindow) GetErrorRate() float32 {
+//func (storage *SlidingTimeWindow) GetErrorRate() float64 {
 //	storage.mu.Lock()
 //	defer storage.mu.Unlock()
 //
@@ -121,10 +121,10 @@ func (storage *tumblingTimeWindow) removeExpiredCounts(start time.Time) {
 //	}
 //
 //	if successes == 0 {
-//		return float32(errors)
+//		return float64(errors)
 //	}
 //
-//	return float32(errors) / float32(successes)
+//	return float64(errors) / float64(successes)
 //}
 //
 //// Don't acquire storage.mu here since it has already been acquired

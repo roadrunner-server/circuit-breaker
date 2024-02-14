@@ -3,35 +3,35 @@ package circuitbreaker
 import "time"
 
 type Config struct {
-	maxErrorRate   float32       `mapstructure:"max_error_rate"`
-	timeToHalfOpen time.Duration `mapstructure:"time_to_halfopen"`
-	timeToClosed   time.Duration `mapstructure:"time_to_closed"`
-	errors         []int         `mapstructure:"error_codes"`
-	codeWhenOpen   int           `mapstructure:"code_when_open"`
-	timeWindow     time.Duration `mapstructure:"time_window"`
+	MaxErrorRate   float64       `mapstructure:"max_error_rate"`
+	TimeToHalfOpen time.Duration `mapstructure:"time_to_halfopen"`
+	TimeToClosed   time.Duration `mapstructure:"time_to_closed"`
+	Errors         []int         `mapstructure:"error_codes"`
+	CodeWhenOpen   int           `mapstructure:"code_when_open"`
+	TimeWindow     time.Duration `mapstructure:"time_window"`
 }
 
 func (c *Config) InitDefault() {
-	if c.maxErrorRate == 0.0 {
+	if c.MaxErrorRate == 0.0 {
 		// 200% will never happen so effectively disabled. Log a warning?
-		c.maxErrorRate = 2
+		c.MaxErrorRate = 2
 	}
 
-	if c.timeToHalfOpen == 0 {
-		c.timeToHalfOpen = time.Minute
+	if c.TimeToHalfOpen == 0 {
+		c.TimeToHalfOpen = time.Minute
 	}
 
-	if c.timeToClosed == 0 {
-		c.timeToClosed = time.Minute
+	if c.TimeToClosed == 0 {
+		c.TimeToClosed = time.Minute
 	}
 
 	// Errors array can be empty, effectively disabling this. Log a warning?
 
-	if c.codeWhenOpen == 0 {
-		c.codeWhenOpen = 503
+	if c.CodeWhenOpen == 0 {
+		c.CodeWhenOpen = 503
 	}
 
-	if c.timeWindow == 0 {
-		c.timeWindow = 5 * time.Minute
+	if c.TimeWindow == 0 {
+		c.TimeWindow = 5 * time.Minute
 	}
 }

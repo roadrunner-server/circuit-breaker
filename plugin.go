@@ -15,9 +15,9 @@ type Status int32
 const (
 	pluginName = "circuitbreaker"
 
-	StatusClosed   = Status(0)
-	StatusOpen     = Status(1)
-	StatusHalfOpen = Status(2)
+	StatusClosed   Status = 0
+	StatusOpen     Status = 1
+	StatusHalfOpen Status = 2
 )
 
 type Configurer interface {
@@ -35,7 +35,7 @@ type Plugin struct {
 	log         *zap.Logger
 	writersPool sync.Pool
 
-	maxErrorRate   float32
+	maxErrorRate   float64
 	timeToHalfOpen time.Duration
 	timeToClosed   time.Duration
 	errors         map[int]bool
@@ -75,18 +75,19 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 			return wr
 		},
 	}
-	p.maxErrorRate = conf.maxErrorRate
-	p.timeToHalfOpen = conf.timeToHalfOpen
-	p.timeToClosed = conf.timeToClosed
-	p.codeWhenOpen = conf.codeWhenOpen
+
+	p.maxErrorRate = conf.MaxErrorRate
+	p.timeToHalfOpen = conf.TimeToHalfOpen
+	p.timeToClosed = conf.TimeToClosed
+	p.codeWhenOpen = conf.CodeWhenOpen
 	p.errors = make(map[int]bool)
 
-	for configuredError := range conf.errors {
+	for configuredError := range conf.Errors {
 		p.errors[configuredError] = true
 	}
 
 	p.storage = &tumblingTimeWindow{}
-	p.storage.Init(conf.timeWindow)
+	p.storage.Init(conf.TimeWindow)
 
 	return nil
 }
@@ -131,11 +132,10 @@ func (p *Plugin) checkStatusChange(start time.Time) Status {
 		switch status {
 		case StatusOpen:
 			nextStatus = StatusHalfOpen
-			break
 		case StatusHalfOpen:
 			nextStatus = StatusClosed
-			break
 		}
+
 		status = p.changeStatus(status, nextStatus, start)
 	}
 
@@ -148,10 +148,8 @@ func (p *Plugin) changeStatus(oldStatus Status, status Status, start time.Time) 
 		switch status {
 		case StatusOpen:
 			p.nextStatusChange = start.Add(p.timeToHalfOpen)
-			break
 		case StatusHalfOpen:
 			p.nextStatusChange = start.Add(p.timeToClosed)
-			break
 		}
 
 		return status
