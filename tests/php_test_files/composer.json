@@ -2,6 +2,7 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
+    "php": ">8.0",
     "ext-curl": "*",
     "guzzlehttp/guzzle": "^6.5",
     "nyholm/psr7": "^1.5",

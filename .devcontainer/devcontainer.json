@@ -1,7 +1,7 @@
 {
   "name": "CircuitBreaker",
   "dockerFile": "Dockerfile",
-  "postCreateCommand": "go mod download",
+  "postCreateCommand": "go mod download && pushd tests && pushd php_test_files && composer u",
   "shutdownAction": "none",
   "privileged": true,
   "capAdd": []

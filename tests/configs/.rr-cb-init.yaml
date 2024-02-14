@@ -13,9 +13,9 @@ http:
   middleware: ["circuitbreaker"]
   pool:
     num_workers: 1
-
 circuitbreaker:
-  option_1: "foo"
+  max_error_rate: 0.1
+  error_codes: [ 500 ]
 
 logs:
   mode: development

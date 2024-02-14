@@ -12,17 +12,17 @@ type Config struct {
 }
 
 func (c *Config) InitDefault() {
-	if c.maxErrorRate == 0 {
+	if c.maxErrorRate == 0.0 {
 		// 200% will never happen so effectively disabled. Log a warning?
 		c.maxErrorRate = 2
 	}
 
 	if c.timeToHalfOpen == 0 {
-		c.timeToHalfOpen, _ = time.ParseDuration("60s")
+		c.timeToHalfOpen = time.Minute
 	}
 
 	if c.timeToClosed == 0 {
-		c.timeToClosed, _ = time.ParseDuration("60s")
+		c.timeToClosed = time.Minute
 	}
 
 	// Errors array can be empty, effectively disabling this. Log a warning?
@@ -32,6 +32,6 @@ func (c *Config) InitDefault() {
 	}
 
 	if c.timeWindow == 0 {
-		c.timeWindow, _ = time.ParseDuration("5m")
+		c.timeWindow = 5 * time.Minute
 	}
 }
