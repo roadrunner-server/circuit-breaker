@@ -3,21 +3,14 @@ package circuitbreaker
 import (
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/roadrunner-server/errors"
 	"go.uber.org/zap"
 )
 
-type Status int32
-
 const (
 	pluginName = "circuitbreaker"
-
-	StatusClosed   Status = 0
-	StatusOpen     Status = 1
-	StatusHalfOpen Status = 2
 )
 
 type Configurer interface {
@@ -34,17 +27,10 @@ type Logger interface {
 type Plugin struct {
 	log         *zap.Logger
 	writersPool sync.Pool
+	cb          circuitBreaker
 
-	maxErrorRate   float64
-	timeToHalfOpen time.Duration
-	timeToClosed   time.Duration
-	errors         map[int]bool
-	codeWhenOpen   int
-
-	status  atomic.Int32
-	storage storage
-
-	nextStatusChange time.Time
+	errors       map[int]bool
+	codeWhenOpen int
 }
 
 // Configurer and Logger would be provided by RR container
@@ -68,6 +54,12 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 	// at this point we're able to safely init defaults
 	conf.InitDefault()
 
+	// Validate the config
+	err = conf.Valid()
+	if err != nil {
+		return err
+	}
+
 	p.writersPool = sync.Pool{
 		New: func() any {
 			wr := new(writer)
@@ -76,28 +68,28 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 		},
 	}
 
-	p.maxErrorRate = conf.MaxErrorRate
-	p.timeToHalfOpen = conf.TimeToHalfOpen
-	p.timeToClosed = conf.TimeToClosed
+	p.cb = circuitBreaker{}
+	p.cb.log = p.log
+	p.cb.maxErrorRate = conf.MaxErrorRate
+	p.cb.timeToHalfOpen = conf.TimeToHalfOpen
+	p.cb.timeToClosed = conf.TimeToClosed
+	p.cb.storage = &tumblingTimeWindow{}
+	p.cb.Init(conf.TimeWindow)
+
 	p.codeWhenOpen = conf.CodeWhenOpen
 	p.errors = make(map[int]bool)
 
-	for configuredError := range conf.Errors {
+	for _, configuredError := range conf.Errors {
 		p.errors[configuredError] = true
 	}
-
-	p.storage = &tumblingTimeWindow{}
-	p.storage.Init(conf.TimeWindow)
 
 	return nil
 }
 
 func (p *Plugin) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		status := p.checkStatusChange(start)
-
-		if status == StatusOpen {
+		if !p.cb.AllowRequest() {
+			p.log.Debug("Did not allow request due to status being " + p.cb.GetStatusAsName())
 			w.WriteHeader(p.codeWhenOpen)
 			return
 		}
@@ -109,53 +101,15 @@ func (p *Plugin) Middleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rrWriter, r)
 
 		if p.errors[rrWriter.code] {
-			p.storage.AddError(start)
-
-			if status == StatusHalfOpen || p.storage.GetErrorRate() > p.maxErrorRate {
-				p.changeStatus(status, StatusOpen, start)
-			}
+			p.cb.AddError(time.Now())
 		} else {
-			p.storage.AddSuccess(start)
+			p.cb.AddSuccess(time.Now())
 		}
 	})
 }
 
 func (p *Plugin) Name() string {
 	return pluginName
-}
-
-func (p *Plugin) checkStatusChange(start time.Time) Status {
-	status := Status(p.status.Load())
-
-	if status > StatusClosed && p.nextStatusChange.Before(start) {
-		nextStatus := status
-		switch status {
-		case StatusOpen:
-			nextStatus = StatusHalfOpen
-		case StatusHalfOpen:
-			nextStatus = StatusClosed
-		}
-
-		status = p.changeStatus(status, nextStatus, start)
-	}
-
-	return status
-}
-
-func (p *Plugin) changeStatus(oldStatus Status, status Status, start time.Time) Status {
-	// We are protected here since status changes won't happen quickly
-	if p.status.CompareAndSwap(int32(oldStatus), int32(status)) {
-		switch status {
-		case StatusOpen:
-			p.nextStatusChange = start.Add(p.timeToHalfOpen)
-		case StatusHalfOpen:
-			p.nextStatusChange = start.Add(p.timeToClosed)
-		}
-
-		return status
-	}
-
-	return oldStatus
 }
 
 func (p *Plugin) getWriter(w http.ResponseWriter) *writer {

@@ -8,7 +8,9 @@ import (
 	"github.com/roadrunner-server/logger/v4"
 	"github.com/roadrunner-server/server/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -17,20 +19,20 @@ import (
 	"time"
 )
 
-func StartRoadrunner(t *testing.T) (wg *sync.WaitGroup, stopCh chan struct{}) {
+func StartRoadrunner(t *testing.T, configFile string) (wg *sync.WaitGroup, stopCh chan struct{}) {
 	cont := endure.New(slog.LevelDebug)
 
 	cfg := &config.Plugin{
 		Version: "2023.3.5",
-		Path:    "configs/.rr-cb-init.yaml",
+		Path:    configFile,
 		Prefix:  "rr",
 	}
 
 	err := cont.RegisterAll(
 		cfg,
-		&logger.Plugin{},
 		&server.Plugin{},
 		&cb.Plugin{},
+		&logger.Plugin{},
 		&httpPlugin.Plugin{},
 	)
 	assert.NoError(t, err)
@@ -87,4 +89,15 @@ func StartRoadrunner(t *testing.T) (wg *sync.WaitGroup, stopCh chan struct{}) {
 func StopRoadrunner(wg *sync.WaitGroup, stopCh chan struct{}) {
 	stopCh <- struct{}{}
 	wg.Wait()
+}
+
+func SendRequest(t *testing.T, url string, expectedStatusCode int) {
+	// perform a request to trigger a middleware
+	r, err := http.Get("http://127.0.0.1:17876" + url)
+	assert.NoError(t, err)
+	require.NotNil(t, r)
+
+	_ = r.Body.Close()
+
+	assert.Equal(t, expectedStatusCode, r.StatusCode)
 }

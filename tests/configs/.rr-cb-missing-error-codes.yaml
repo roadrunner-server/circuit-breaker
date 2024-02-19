@@ -16,7 +16,7 @@ http:
 
 circuitbreaker:
   max_error_rate: 0.1
-  error_codes: [ 500, 503 ]
+  error_codes: [ ]
 
 logs:
   mode: development

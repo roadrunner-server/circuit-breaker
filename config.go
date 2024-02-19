@@ -1,6 +1,9 @@
 package circuitbreaker
 
-import "time"
+import (
+	"github.com/roadrunner-server/errors"
+	"time"
+)
 
 type Config struct {
 	MaxErrorRate   float64       `mapstructure:"max_error_rate"`
@@ -12,11 +15,6 @@ type Config struct {
 }
 
 func (c *Config) InitDefault() {
-	if c.MaxErrorRate == 0.0 {
-		// 200% will never happen so effectively disabled. Log a warning?
-		c.MaxErrorRate = 2
-	}
-
 	if c.TimeToHalfOpen == 0 {
 		c.TimeToHalfOpen = time.Minute
 	}
@@ -25,8 +23,6 @@ func (c *Config) InitDefault() {
 		c.TimeToClosed = time.Minute
 	}
 
-	// Errors array can be empty, effectively disabling this. Log a warning?
-
 	if c.CodeWhenOpen == 0 {
 		c.CodeWhenOpen = 503
 	}
@@ -34,4 +30,16 @@ func (c *Config) InitDefault() {
 	if c.TimeWindow == 0 {
 		c.TimeWindow = 5 * time.Minute
 	}
+}
+
+func (c *Config) Valid() error {
+	if c.MaxErrorRate == 0 || c.MaxErrorRate > 1.0 {
+		return errors.E("The value for max_error_rate has to be in the range (0, 1.0]")
+	}
+
+	if len(c.Errors) == 0 {
+		return errors.E("The array `error_codes` needs to be populated to enable circuitbreaker")
+	}
+
+	return nil
 }
