@@ -3,16 +3,15 @@ package circuitbreaker
 import (
 	"go.uber.org/zap"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
-type Status int32
+type status int32
 
 const (
-	StatusClosed   Status = 0
-	StatusOpen     Status = 1
-	StatusHalfOpen Status = 2
+	statusClosed   status = 0
+	statusOpen     status = 1
+	statusHalfOpen status = 2
 )
 
 type circuitBreaker struct {
@@ -21,94 +20,96 @@ type circuitBreaker struct {
 	timeToHalfOpen             time.Duration
 	timeToClosed               time.Duration
 	storage                    storage
-	statusChangeWatcherRunning atomic.Bool
+	statusChangeWatcherRunning *sync.WaitGroup
 	nextStatusChangeChannel    chan time.Time
+	stopStatusChanger          chan struct{}
 
 	// Basically only writing to currentStatus is protected by mu
 	// Since the storage (tumblingTimeWindow) is entirely in atomic operations
 	// and reading from currentStatus is okay to not be synchronized (and shouldn't be).
 	// Using mu for storage may become a necessity once slidingTimeWindow is fully implemented.
 	mu            sync.Mutex
-	currentStatus Status
+	currentStatus status
 }
 
 func (cb *circuitBreaker) Init(timeWindow time.Duration) {
-	cb.currentStatus = StatusClosed
+	cb.currentStatus = statusClosed
 	cb.mu = sync.Mutex{}
+	cb.statusChangeWatcherRunning = &sync.WaitGroup{}
 	cb.nextStatusChangeChannel = make(chan time.Time, 2)
-	cb.storage.Init(timeWindow)
-}
+	cb.stopStatusChanger = make(chan struct{}, 1)
+	cb.storage.init(timeWindow)
 
-func (cb *circuitBreaker) AllowRequest() bool {
-	return cb.currentStatus != StatusOpen
-}
-
-func (cb *circuitBreaker) AddSuccess(time time.Time) {
-	cb.storage.AddSuccess(time)
-}
-
-func (cb *circuitBreaker) AddError(time time.Time) {
-	cb.storage.AddError(time)
-
-	if cb.currentStatus == StatusHalfOpen || cb.storage.GetErrorRate() >= cb.maxErrorRate {
-		cb.mu.Lock()
-		defer cb.mu.Unlock()
-		cb.log.Debug(
-			"Changed Status to Open",
-			zap.String("OldStatus", cb.GetStatusAsName()),
-			zap.Float64("ErrorRate", cb.storage.GetErrorRate()),
-		)
-		cb.currentStatus = StatusOpen
-		cb.StatusChangeWatcher(time.Add(cb.timeToHalfOpen))
-	}
-}
-
-func (cb *circuitBreaker) StatusChangeWatcher(nextStatusChangeTime time.Time) {
-	// Send changed status change time
-	cb.nextStatusChangeChannel <- nextStatusChangeTime
-
-	// Watcher is running
-	if cb.statusChangeWatcherRunning.CompareAndSwap(false, true) == false {
-		return
-	}
-
+	cb.statusChangeWatcherRunning.Add(1)
 	go func() {
-		defer func() { cb.statusChangeWatcherRunning.Store(false) }()
+		defer cb.statusChangeWatcherRunning.Done()
 
 		for {
-			if len(cb.nextStatusChangeChannel) > 0 {
-				nextStatusChange := <-cb.nextStatusChangeChannel
+			select {
+			case <-cb.stopStatusChanger:
+				cb.log.Debug("Quitting status changer")
+				return
+			case nextStatusChange := <-cb.nextStatusChangeChannel:
+				cb.log.Debug("Sleeping until " + nextStatusChange.Format(time.RFC3339))
 				time.Sleep(nextStatusChange.Sub(time.Now()))
-			} else {
+			default:
 				cb.mu.Lock()
 				switch cb.currentStatus {
-				case StatusOpen:
-					cb.log.Debug("Changed Status from Open to HalfOpen")
-					cb.currentStatus = StatusHalfOpen
+				case statusOpen:
+					cb.log.Debug("Changed status from Open to HalfOpen")
+					cb.currentStatus = statusHalfOpen
 					cb.mu.Unlock()
-					time.Sleep(cb.timeToClosed)
-				case StatusHalfOpen:
-					cb.log.Debug("Changed Status from HalfOpen to Closed")
-					cb.currentStatus = StatusClosed
+					cb.nextStatusChangeChannel <- time.Now().Add(cb.timeToClosed)
+				case statusHalfOpen:
+					cb.log.Debug("Changed status from HalfOpen to Closed")
+					cb.currentStatus = statusClosed
 					cb.mu.Unlock()
-					return
 				default:
-					cb.log.Debug("Changed nothing")
 					cb.mu.Unlock()
-					return
 				}
+				// We don't need to immediately check this again
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}()
 }
 
+func (cb *circuitBreaker) AllowRequest() bool {
+	return cb.currentStatus != statusOpen
+}
+
+func (cb *circuitBreaker) AddSuccess(time time.Time) {
+	cb.storage.addSuccess(time)
+}
+
+func (cb *circuitBreaker) AddError(time time.Time) {
+	cb.storage.addError(time)
+
+	if cb.currentStatus == statusHalfOpen || cb.storage.getErrorRate() >= cb.maxErrorRate {
+		cb.mu.Lock()
+		defer cb.mu.Unlock()
+		cb.log.Debug(
+			"Changed status to Open",
+			zap.String("OldStatus", cb.GetStatusAsName()),
+			zap.Float64("ErrorRate", cb.storage.getErrorRate()),
+		)
+		cb.currentStatus = statusOpen
+		cb.nextStatusChangeChannel <- time.Add(cb.timeToHalfOpen)
+	}
+}
+
+func (cb *circuitBreaker) Stop() {
+	cb.stopStatusChanger <- struct{}{}
+	cb.statusChangeWatcherRunning.Wait()
+}
+
 func (cb *circuitBreaker) GetStatusAsName() string {
 	switch cb.currentStatus {
-	case StatusClosed:
+	case statusClosed:
 		return "Closed"
-	case StatusHalfOpen:
+	case statusHalfOpen:
 		return "HalfOpen"
-	case StatusOpen:
+	case statusOpen:
 		return "Open"
 	}
 

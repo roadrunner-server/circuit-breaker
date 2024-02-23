@@ -16,11 +16,11 @@ type Config struct {
 
 func (c *Config) InitDefault() {
 	if c.TimeToHalfOpen == 0 {
-		c.TimeToHalfOpen = time.Minute
+		c.TimeToHalfOpen = time.Second * 5
 	}
 
 	if c.TimeToClosed == 0 {
-		c.TimeToClosed = time.Minute
+		c.TimeToClosed = time.Second * 10
 	}
 
 	if c.CodeWhenOpen == 0 {
@@ -28,7 +28,7 @@ func (c *Config) InitDefault() {
 	}
 
 	if c.TimeWindow == 0 {
-		c.TimeWindow = 5 * time.Minute
+		c.TimeWindow = time.Minute
 	}
 }
 

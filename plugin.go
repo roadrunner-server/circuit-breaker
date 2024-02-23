@@ -1,6 +1,7 @@
 package circuitbreaker
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -26,8 +27,8 @@ type Logger interface {
 
 type Plugin struct {
 	log         *zap.Logger
-	writersPool sync.Pool
-	cb          circuitBreaker
+	writersPool *sync.Pool
+	cb          *circuitBreaker
 
 	errors       map[int]bool
 	codeWhenOpen int
@@ -60,7 +61,7 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 		return err
 	}
 
-	p.writersPool = sync.Pool{
+	p.writersPool = &sync.Pool{
 		New: func() any {
 			wr := new(writer)
 			wr.code = -1
@@ -68,7 +69,7 @@ func (p *Plugin) Init(cfg Configurer, logger Logger) error {
 		},
 	}
 
-	p.cb = circuitBreaker{}
+	p.cb = &circuitBreaker{}
 	p.cb.log = p.log
 	p.cb.maxErrorRate = conf.MaxErrorRate
 	p.cb.timeToHalfOpen = conf.TimeToHalfOpen
@@ -110,6 +111,16 @@ func (p *Plugin) Middleware(next http.Handler) http.Handler {
 
 func (p *Plugin) Name() string {
 	return pluginName
+}
+
+// Serve No-Op since we actually only need the Stop() function
+func (p *Plugin) Serve() chan error {
+	return nil
+}
+
+func (p *Plugin) Stop(ctx context.Context) error {
+	p.cb.Stop()
+	return nil
 }
 
 func (p *Plugin) getWriter(w http.ResponseWriter) *writer {

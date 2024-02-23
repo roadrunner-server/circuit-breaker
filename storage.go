@@ -6,10 +6,10 @@ import (
 )
 
 type storage interface {
-	Init(time.Duration)
-	AddError(time.Time)
-	AddSuccess(time.Time)
-	GetErrorRate() float64
+	init(time.Duration)
+	addError(time.Time)
+	addSuccess(time.Time)
+	getErrorRate() float64
 }
 
 type tumblingTimeWindow struct {
@@ -20,24 +20,24 @@ type tumblingTimeWindow struct {
 	timeWindowDuration   time.Duration
 }
 
-func (storage *tumblingTimeWindow) Init(timeWindowDuration time.Duration) {
+func (storage *tumblingTimeWindow) init(timeWindowDuration time.Duration) {
 	storage.timeWindowDuration = timeWindowDuration
 	storage.errors.Store(0)
 	storage.successes.Store(0)
 	storage.endTimeWindow = time.Now().Add(timeWindowDuration)
 }
 
-func (storage *tumblingTimeWindow) AddError(start time.Time) {
+func (storage *tumblingTimeWindow) addError(start time.Time) {
 	storage.removeExpiredCounts(start)
 	storage.errors.Add(1)
 }
 
-func (storage *tumblingTimeWindow) AddSuccess(start time.Time) {
+func (storage *tumblingTimeWindow) addSuccess(start time.Time) {
 	storage.removeExpiredCounts(start)
 	storage.successes.Add(1)
 }
 
-func (storage *tumblingTimeWindow) GetErrorRate() float64 {
+func (storage *tumblingTimeWindow) getErrorRate() float64 {
 	successes := storage.successes.Load()
 	errors := storage.errors.Load()
 	// Avoid divide by zero errors :)
@@ -68,11 +68,11 @@ type slidingTimeWindow struct {
 	timeWindowDuration time.Duration
 }
 
-func (storage *slidingTimeWindow) Init(timeWindow time.Duration) {
+func (storage *slidingTimeWindow) init(timeWindow time.Duration) {
 	storage.timeWindowDuration = timeWindow
 }
 
-func (storage *slidingTimeWindow) AddError(start time.Time) {
+func (storage *slidingTimeWindow) addError(start time.Time) {
 	storage.removeExpiredCounts(start)
 	key := start.Unix()
 
@@ -83,7 +83,7 @@ func (storage *slidingTimeWindow) AddError(start time.Time) {
 	}
 }
 
-func (storage *slidingTimeWindow) AddSuccess(start time.Time) {
+func (storage *slidingTimeWindow) addSuccess(start time.Time) {
 	storage.removeExpiredCounts(start)
 	key := start.Unix()
 
@@ -94,7 +94,7 @@ func (storage *slidingTimeWindow) AddSuccess(start time.Time) {
 	}
 }
 
-func (storage *slidingTimeWindow) GetErrorRate() float64 {
+func (storage *slidingTimeWindow) getErrorRate() float64 {
 	errors := int64(0)
 	for _, value := range storage.errors {
 		errors += value
