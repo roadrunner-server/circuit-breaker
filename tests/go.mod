@@ -8,6 +8,7 @@ require (
 	github.com/roadrunner-server/circuit-breaker/v4 v4.0.0-20240210110235-79a6c35375cc
 	github.com/roadrunner-server/config/v4 v4.6.7
 	github.com/roadrunner-server/endure/v2 v2.4.3
+	github.com/roadrunner-server/errors v1.4.0
 	github.com/roadrunner-server/http/v4 v4.5.1
 	github.com/roadrunner-server/logger/v4 v4.2.14
 	github.com/roadrunner-server/server/v4 v4.5.7
@@ -51,7 +52,6 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/quic-go v0.41.0 // indirect
 	github.com/roadrunner-server/api/v4 v4.10.0 // indirect
-	github.com/roadrunner-server/errors v1.4.0 // indirect
 	github.com/roadrunner-server/goridge/v3 v3.8.1 // indirect
 	github.com/roadrunner-server/sdk/v4 v4.6.0 // indirect
 	github.com/roadrunner-server/tcplisten v1.4.0 // indirect
@@ -84,7 +84,7 @@ require (
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.17.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
